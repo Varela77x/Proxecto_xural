@@ -1,0 +1,832 @@
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  HeadingLevel, AlignmentType, BorderStyle, WidthType, ShadingType,
+  LevelFormat, PageBreak
+} = require('docx');
+const fs = require('fs');
+ 
+const G = "2D5016";   // verde galicia
+const GO = "8B6914";  // dorado miel
+const CR = "F5F0E8";  // crema
+const LG = "E8F0DC";  // verde claro
+const b = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
+const brd = { top: b, bottom: b, left: b, right: b };
+const nb = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+const nob = { top: nb, bottom: nb, left: nb, right: nb };
+ 
+const h1 = (text) => new Paragraph({
+  heading: HeadingLevel.HEADING_1,
+  spacing: { before: 560, after: 240 },
+  border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: GO, space: 8 } },
+  children: [new TextRun({ text, bold: true, color: G, size: 38, font: "Georgia" })]
+});
+const h2 = (text) => new Paragraph({
+  heading: HeadingLevel.HEADING_2,
+  spacing: { before: 360, after: 180 },
+  children: [new TextRun({ text, bold: true, color: GO, size: 28, font: "Georgia" })]
+});
+const h3 = (text) => new Paragraph({
+  heading: HeadingLevel.HEADING_3,
+  spacing: { before: 260, after: 120 },
+  children: [new TextRun({ text, bold: true, color: G, size: 24, font: "Arial" })]
+});
+const p = (text, opts = {}) => new Paragraph({
+  spacing: { before: 100, after: 120 },
+  children: [new TextRun({ text, size: 22, font: "Arial", color: "333333", ...opts })]
+});
+const sp = () => new Paragraph({ spacing: { before: 100, after: 100 }, children: [new TextRun("")] });
+const pg = () => new Paragraph({ children: [new PageBreak()] });
+ 
+const bu = (text, bold = false) => new Paragraph({
+  numbering: { reference: "bul", level: 0 },
+  spacing: { before: 60, after: 70 },
+  children: [new TextRun({ text, size: 22, font: "Arial", bold, color: "333333" })]
+});
+ 
+const box = (title, lines, fillTitle = G, fillBody = "FAF7F0") => {
+  const rows = [
+    new TableRow({ children: [new TableCell({
+      borders: brd, width: { size: 9026, type: WidthType.DXA },
+      shading: { fill: fillTitle, type: ShadingType.CLEAR },
+      margins: { top: 140, bottom: 140, left: 220, right: 220 },
+      children: [new Paragraph({ children: [new TextRun({ text: title, bold: true, color: "FFFFFF", size: 24, font: "Georgia" })] })]
+    })] }),
+    ...lines.map(line => new TableRow({ children: [new TableCell({
+      borders: brd, width: { size: 9026, type: WidthType.DXA },
+      shading: { fill: fillBody, type: ShadingType.CLEAR },
+      margins: { top: 90, bottom: 90, left: 220, right: 220 },
+      children: [new Paragraph({ children: [new TextRun({ text: line, size: 21, font: "Arial", color: "333333" })] })]
+    })] }))
+  ];
+  return new Table({ width: { size: 9026, type: WidthType.DXA }, columnWidths: [9026], rows });
+};
+ 
+const twoCol = (la, ra, li, ri, lf = "D5E8D4", rf = "FFF0D4") => {
+  const w = 4513;
+  return new Table({
+    width: { size: 9026, type: WidthType.DXA }, columnWidths: [w, w],
+    rows: [
+      new TableRow({ children: [
+        new TableCell({ borders: brd, width: { size: w, type: WidthType.DXA }, shading: { fill: G, type: ShadingType.CLEAR }, margins: { top: 100, bottom: 100, left: 160, right: 160 }, children: [new Paragraph({ children: [new TextRun({ text: la, bold: true, color: "FFFFFF", size: 24, font: "Georgia" })] })] }),
+        new TableCell({ borders: brd, width: { size: w, type: WidthType.DXA }, shading: { fill: GO, type: ShadingType.CLEAR }, margins: { top: 100, bottom: 100, left: 160, right: 160 }, children: [new Paragraph({ children: [new TextRun({ text: ra, bold: true, color: "FFFFFF", size: 24, font: "Georgia" })] })] }),
+      ]}),
+      ...[...Array(Math.max(li.length, ri.length))].map((_, i) =>
+        new TableRow({ children: [
+          new TableCell({ borders: brd, width: { size: w, type: WidthType.DXA }, shading: { fill: lf, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 160, right: 160 }, children: [new Paragraph({ children: [new TextRun({ text: li[i] || "", size: 21, font: "Arial", color: "333333" })] })] }),
+          new TableCell({ borders: brd, width: { size: w, type: WidthType.DXA }, shading: { fill: rf, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 160, right: 160 }, children: [new Paragraph({ children: [new TextRun({ text: ri[i] || "", size: 21, font: "Arial", color: "333333" })] })] }),
+        ]})
+      )
+    ]
+  });
+};
+ 
+const dafo = () => {
+  const cell = (fill, title, items) => new TableCell({
+    borders: brd, width: { size: 4513, type: WidthType.DXA },
+    shading: { fill, type: ShadingType.CLEAR },
+    margins: { top: 140, bottom: 140, left: 180, right: 180 },
+    children: [
+      new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: title, bold: true, size: 24, font: "Georgia", color: "222222" })] }),
+      ...items.map(i => new Paragraph({ spacing: { before: 50, after: 50 }, children: [new TextRun({ text: "▸ " + i, size: 20, font: "Arial", color: "333333" })] }))
+    ]
+  });
+  return new Table({
+    width: { size: 9026, type: WidthType.DXA }, columnWidths: [4513, 4513],
+    rows: [
+      new TableRow({ children: [
+        cell("C8E6C9", "💪 FORTALEZAS (Interno +)", ["Entorno natural único e irrepetible","Manzanos, colmenas, caballos, gallinas: vida real","Concepto premium en nicho poco explotado en Galicia","Autenticidad como activo diferencial","Producción propia (miel, sidra, huerto)","Ubicación privilegiada en paisaje atlántico"]),
+        cell("FFE0B2", "⚠️ DEBILIDADES (Interno –)", ["Inversión inicial elevada","Estacionalidad del clima atlántico","Dependencia de pocas unidades en fase inicial","Necesidad de personal cualificado y comprometido","Accesibilidad sin vehículo propio limitada","Curva de aprendizaje en gestión agroturística"]),
+      ]}),
+      new TableRow({ children: [
+        cell("BBDEFB", "🚀 OPORTUNIDADES (Externo +)", ["Boom del turismo slow y experiencial","Galicia de moda como destino auténtico","Creciente demanda de turismo sostenible","Mercado internacional: alemanes, franceses, norteamericanos","Camino de Santiago como atractor de flujo","Ayudas europeas y autonómicas (LEADER, FEADER)","Tendencia digital nomad y retiros de bienestar"]),
+        cell("FFCDD2", "🔴 AMENAZAS (Externo –)", ["Competencia creciente de casas rurales","Clima atlántico impredecible","Comisiones elevadas de OTAs (15-20%)","Regulación turística autonómica cambiante","Inflación de materiales y servicios","Posible saturación del segmento boutique rural"]),
+      ]})
+    ]
+  });
+};
+ 
+const roadmapTable = () => {
+  const colW = [1800, 2408, 2408, 2410];
+  const header = ["FASE", "PERÍODO", "ACCIONES CLAVE", "HITO"].map((t, i) =>
+    new TableCell({ borders: brd, width: { size: colW[i], type: WidthType.DXA }, shading: { fill: G, type: ShadingType.CLEAR }, margins: { top: 100, bottom: 100, left: 120, right: 120 }, children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, color: "FFFFFF", size: 20, font: "Georgia" })] })] })
+  );
+  const rows_data = [
+    ["FASE 0\nPreparación", "Mes 1–3", "Permisos y licencias\nBranding y web\nInicio rehabilitación\nSolicitud subvenciones", "Empresa constituida\nIdentidad visual lista"],
+    ["FASE 1\nPrelanzamiento", "Mes 4–6", "Web operativa y reservas abiertas\nRedes sociales activas\nInfluencers y prensa\nAcuerdos con colaboradores", "Primeras reservas\n200+ seguidores/día"],
+    ["FASE 2\nApertura", "Mes 7–12", "Apertura oficial\nCatálogo experiencias completo\nCampañas Google & Meta\nPrimeras reseñas y menciones", "Ocupación >50%\nNota media >9/10"],
+    ["FASE 3\nConsolidación", "Año 2–3", "Ampliación de capacidad\nRetiros y programa B2B\nTienda online productos\nMercado internacional", "Ingresos >180.000€\nReferente Galicia"],
+  ];
+  return new Table({
+    width: { size: 9026, type: WidthType.DXA }, columnWidths: colW,
+    rows: [
+      new TableRow({ children: header }),
+      ...rows_data.map((row, ri) => new TableRow({ children: row.map((t, ci) =>
+        new TableCell({ borders: brd, width: { size: colW[ci], type: WidthType.DXA }, shading: { fill: ri % 2 === 0 ? "FAFAF7" : "F2F5EE", type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: t.split("\n").map(line => new Paragraph({ spacing: { before: 30, after: 30 }, children: [new TextRun({ text: line, size: 19, font: "Arial", color: "333333" })] })) })
+      ) }))
+    ]
+  });
+};
+ 
+const incomeTable = () => {
+  const colW = [3626, 1800, 1800, 1800];
+  const header = ["LÍNEA DE INGRESOS", "AÑO 1", "AÑO 2", "AÑO 3"].map((t, i) =>
+    new TableCell({ borders: brd, width: { size: colW[i], type: WidthType.DXA }, shading: { fill: G, type: ShadingType.CLEAR }, margins: { top: 100, bottom: 100, left: 120, right: 120 }, children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, color: "FFFFFF", size: 20, font: "Georgia" })] })] })
+  );
+  const data = [
+    ["Alojamiento (3 unidades, 60% ocup.)", "131.000€", "160.000€", "185.000€"],
+    ["Experiencias y packs", "18.000€", "32.000€", "48.000€"],
+    ["Productos de la finca y tienda", "5.000€", "9.000€", "15.000€"],
+    ["Retiros y eventos especiales", "–", "12.000€", "22.000€"],
+    ["TOTAL INGRESOS", "154.000€", "213.000€", "270.000€"],
+    ["Gastos operativos estimados", "–98.000€", "–118.000€", "–135.000€"],
+    ["EBITDA ESTIMADO", "56.000€", "95.000€", "135.000€"],
+  ];
+  return new Table({
+    width: { size: 9026, type: WidthType.DXA }, columnWidths: colW,
+    rows: [
+      new TableRow({ children: header }),
+      ...data.map((row, ri) => new TableRow({ children: row.map((t, ci) =>
+        new TableCell({ borders: brd, width: { size: colW[ci], type: WidthType.DXA }, shading: { fill: (ri === 4 || ri === 6) ? LG : (ri % 2 === 0 ? "FAFAF7" : "F5F5F0"), type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 120, right: 120 }, children: [new Paragraph({ children: [new TextRun({ text: t, size: 20, font: "Arial", bold: ri === 4 || ri === 6, color: (ri === 6) ? G : "333333" })] })] })
+      ) }))
+    ]
+  });
+};
+ 
+const doc = new Document({
+  numbering: {
+    config: [
+      { reference: "bul", levels: [{ level: 0, format: LevelFormat.BULLET, text: "▸", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 640, hanging: 320 } }, run: { color: GO, size: 22 } } }] },
+      { reference: "bul2", levels: [{ level: 0, format: LevelFormat.BULLET, text: "–", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 860, hanging: 300 } } } }] },
+    ]
+  },
+  styles: {
+    default: { document: { run: { font: "Arial", size: 22, color: "333333" } } },
+    paragraphStyles: [
+      { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true, run: { size: 38, bold: true, font: "Georgia", color: G }, paragraph: { spacing: { before: 560, after: 240 }, outlineLevel: 0 } },
+      { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true, run: { size: 28, bold: true, font: "Georgia", color: GO }, paragraph: { spacing: { before: 360, after: 180 }, outlineLevel: 1 } },
+      { id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true, run: { size: 24, bold: true, font: "Arial", color: G }, paragraph: { spacing: { before: 260, after: 120 }, outlineLevel: 2 } },
+    ]
+  },
+  sections: [{
+    properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1440, right: 1300, bottom: 1440, left: 1300 } } },
+    children: [
+ 
+      // ── PORTADA ──────────────────────────────────────────────────
+      new Paragraph({ spacing: { before: 1000, after: 300 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "MEMORIA DE PROYECTO", size: 22, color: GO, bold: true, font: "Arial" })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 200 }, children: [new TextRun({ text: "A Cortiña da Alma", size: 80, bold: true, color: G, font: "Georgia" })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "──────────────────────────", size: 24, color: GO, font: "Arial" })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 600 }, children: [new TextRun({ text: "Agroturismo Premium · Experiencias Rurales · Galicia Auténtica", size: 26, color: "555555", font: "Georgia", italics: true })] }),
+      new Table({ width: { size: 9026, type: WidthType.DXA }, columnWidths: [9026], rows: [new TableRow({ children: [new TableCell({ borders: nob, shading: { fill: G, type: ShadingType.CLEAR }, margins: { top: 360, bottom: 360, left: 400, right: 400 }, children: [
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "San Sadurniño · A Coruña · Galicia · España", size: 28, color: "FFFFFF", bold: true, font: "Georgia" })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120 }, children: [new TextRun({ text: "Proyecto de Turismo Rural Experiencial y Sostenible", size: 22, color: "AACCAA", font: "Arial" })] }),
+      ] })] })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 500, after: 100 }, children: [new TextRun({ text: "Documento Estratégico Confidencial · Versión 1.0 · 2025", size: 19, color: "888888", font: "Arial" })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 60, after: 60 }, children: [new TextRun({ text: "«Donde el tiempo tiene otro ritmo»", size: 22, color: GO, font: "Georgia", italics: true })] }),
+ 
+      pg(),
+ 
+      // ── ÍNDICE ───────────────────────────────────────────────────
+      h1("ÍNDICE DE CONTENIDOS"),
+      ...[
+        ["1.", "Nombre e Identidad del Proyecto"],
+        ["2.", "Concepto, Visión y Misión"],
+        ["3.", "Objetivos del Proyecto"],
+        ["4.", "Estudio de Mercado y Tendencias"],
+        ["5.", "Público Objetivo y Buyer Personas"],
+        ["6.", "Propuesta de Valor y Diferenciación"],
+        ["7.", "Modelo de Negocio y Fuentes de Ingresos"],
+        ["8.", "Catálogo de Experiencias por Temporadas"],
+        ["9.", "Packs Turísticos Propuestos"],
+        ["10.", "Estrategia de Marketing y Branding"],
+        ["11.", "Estrategia Digital y Arquitectura Web"],
+        ["12.", "Red de Colaboraciones Locales"],
+        ["13.", "Sostenibilidad y Enfoque Ecológico"],
+        ["14.", "Análisis DAFO"],
+        ["15.", "Viabilidad Económica y Proyecciones"],
+        ["16.", "Subvenciones y Ayudas Disponibles"],
+        ["17.", "Roadmap de Lanzamiento"],
+        ["18.", "Estrategia de Crecimiento a Largo Plazo"],
+      ].map(([num, title]) => new Paragraph({
+        spacing: { before: 80, after: 80 },
+        children: [
+          new TextRun({ text: num + "  ", bold: true, color: GO, size: 22, font: "Arial" }),
+          new TextRun({ text: title, size: 22, font: "Arial", color: "333333" })
+        ]
+      })),
+ 
+      pg(),
+ 
+      // ── 1. NOMBRE ────────────────────────────────────────────────
+      h1("1. NOMBRE E IDENTIDAD DEL PROYECTO"),
+      h2("Nombre Principal Seleccionado"),
+      new Table({ width: { size: 9026, type: WidthType.DXA }, columnWidths: [9026], rows: [new TableRow({ children: [new TableCell({ borders: nob, shading: { fill: "FAF7F0", type: ShadingType.CLEAR }, margins: { top: 280, bottom: 280, left: 380, right: 380 }, children: [
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: "A CORTIÑA DA ALMA", size: 56, bold: true, color: G, font: "Georgia" })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "«El huerto del alma» — Un lugar íntimo, vivo y profundamente gallego", size: 22, color: "666666", font: "Georgia", italics: true })] }),
+      ] })] })] }),
+      sp(),
+      p("El nombre combina dos raíces del gallego más auténtico: 'cortiña' (pequeño huerto cerrado, parcela viva) y 'alma' (lo más íntimo de uno mismo). Juntos crean una promesa: aquí la tierra y el espíritu conectan. Es pronunciable en español, inglés, alemán y francés, y resulta memorable y único en Google."),
+      sp(),
+      h2("Propuestas Alternativas Evaluadas"),
+      box("Otras opciones de naming analizadas", [
+        "O PAZO DO TEMPO LENTO — El pazo del tiempo lento. Evoca turismo slow con arquitectura gallega.",
+        "A TERRA QUE RESPIRA — La tierra que respira. Enfoque naturaleza viva y bienestar.",
+        "FINCA DA NÉBOA — La finca de la niebla. Estética atlántica, mística y fotogénica.",
+        "O SOUTO VIVO — El bosque de castaños vivo. Minimalista, poético, muy gallego.",
+        "A CASA DOS POLINIZADORES — Referencia directa a las abejas, diferenciador único.",
+        "RAÍCES DE GALICIA — Directo, posicionable internacionalmente con SEO potente.",
+      ], GO),
+      sp(),
+      h2("Taglines Propuestos"),
+      bu("«Vive Galicia como se ha vivido siempre»"),
+      bu("«Desconecta. Respira. Pertenece.»"),
+      bu("«Donde el tiempo tiene otro ritmo»"),
+      bu("«Galicia auténtica. Solo para quienes saben mirar.»"),
+      bu("«Tu próxima escapada ya lleva siglos esperándote»"),
+      bu("«La naturaleza no improvisa. Tampoco nosotros.»"),
+ 
+      pg(),
+ 
+      // ── 2. CONCEPTO ──────────────────────────────────────────────
+      h1("2. CONCEPTO, VISIÓN Y MISIÓN"),
+      h2("El Concepto"),
+      p("A Cortiña da Alma es un proyecto de agroturismo experiencial premium situado en San Sadurniño, provincia de A Coruña, Galicia. Combina alojamiento boutique de alta calidad con experiencias inmersivas en la naturaleza, la vida agraria gallega y el bienestar genuino."),
+      sp(),
+      p("El proyecto parte de una convicción clara: existe un turista exigente y consciente que no busca otro hotel rural, sino una conexión genuina con un lugar, su tierra, sus ritmos y sus gentes. Ese turista es nuestro cliente. Y para él, el entorno es insustituible: manzanos con historia, colmenas activas, caballos que pastan libres, gallinas que despiertan el alba, el olor del huerto mojado por la lluvia atlántica."),
+      sp(),
+      p("No construimos una experiencia artificial. Invitamos a las personas a entrar, durante unos días, en algo real."),
+      sp(),
+      h2("Visión"),
+      box("Visión 2030", ["Convertirse en el referente gallego de agroturismo experiencial premium, reconocido internacionalmente por ofrecer una conexión auténtica con la Galicia rural, liderando un modelo de turismo slow, sostenible y de alto valor que ponga en el mapa a San Sadurniño como destino de referencia."]),
+      sp(),
+      h2("Misión"),
+      p("Crear experiencias turísticas que conecten profundamente a las personas con la naturaleza atlántica, la cultura local y el bienestar real, a través de un modelo de negocio sostenible que respete y potencie el entorno natural y la comunidad rural de San Sadurniño."),
+      sp(),
+      h2("Valores Fundacionales"),
+      bu("AUTENTICIDAD — Nada está escenificado. Todo es real, todo tiene historia.", true),
+      bu("LENTITUD CONSCIENTE — El tiempo lento no es ausencia de ritmo; es el mejor ritmo.", true),
+      bu("RESPETO AL ENTORNO — La tierra, el agua y los animales son los protagonistas.", true),
+      bu("HOSPITALIDAD CÁLIDA — El trato humano es parte inseparable del producto.", true),
+      bu("CALIDAD SOBRE CANTIDAD — Pocos huéspedes, atención máxima, experiencia única.", true),
+      bu("COMUNIDAD — El proyecto es parte del tejido social y económico local.", true),
+ 
+      pg(),
+ 
+      // ── 3. OBJETIVOS ─────────────────────────────────────────────
+      h1("3. OBJETIVOS DEL PROYECTO"),
+      h2("Objetivos Estratégicos"),
+      bu("Posicionarse como referente premium del turismo rural gallego en los primeros 18 meses"),
+      bu("Alcanzar una ocupación media del 60% en el primer año operativo y del 75% en el segundo"),
+      bu("Generar ingresos complementarios por experiencias equivalentes al 30-40% del total"),
+      bu("Construir una comunidad digital activa de al menos 10.000 seguidores en 12 meses"),
+      bu("Mantener una puntuación media de 9.5/10 en todas las plataformas de reseñas"),
+      bu("Conseguir al menos 3 menciones en medios especializados en turismo y sostenibilidad"),
+      sp(),
+      h2("Objetivos Operativos"),
+      bu("Habilitar entre 2 y 4 unidades de alojamiento premium en la primera fase"),
+      bu("Diseñar un catálogo mínimo de 12 experiencias distintas organizadas por temporadas"),
+      bu("Establecer alianzas formales con al menos 8 productores y artesanos locales"),
+      bu("Certificar el proyecto bajo sello de sostenibilidad reconocido antes del año 2"),
+      bu("Lanzar la web y presencia digital completa 3 meses antes de la apertura"),
+      sp(),
+      h2("Objetivos Sociales y Ambientales"),
+      bu("Crear empleo local directo e indirecto de calidad en San Sadurniño"),
+      bu("Preservar y poner en valor el patrimonio arquitectónico y paisajístico rural"),
+      bu("Contribuir a la conservación de razas autóctonas y variedades agrícolas locales"),
+      bu("Reducir el impacto ambiental mediante energías renovables y economía circular"),
+ 
+      pg(),
+ 
+      // ── 4. MERCADO ───────────────────────────────────────────────
+      h1("4. ESTUDIO DE MERCADO Y TENDENCIAS"),
+      h2("El Turismo Rural en España"),
+      p("El turismo rural en España experimenta un crecimiento sostenido y acelerado desde 2020. Según el INE, el número de viajeros en alojamientos rurales supera los 4,2 millones anuales con crecimientos de dos dígitos. La demanda de experiencias auténticas y sostenibles crece especialmente entre el segmento de 30-55 años con poder adquisitivo medio-alto, hastíado del turismo de masas."),
+      sp(),
+      h2("Galicia como Destino"),
+      p("Galicia recibe más de 4 millones de turistas al año, con una tendencia creciente vinculada al Camino de Santiago, el turismo de naturaleza y la gastronomía. La región posee una identidad cultural, lingüística y paisajística única que genera fascinación internacional. El norte de la provincia de A Coruña permanece, sin embargo, relativamente inexplorado turísticamente, lo que abre una ventana de posicionamiento temprano."),
+      sp(),
+      h2("Macrotendencias que Impulsan el Proyecto"),
+      box("Tendencias de Mercado Favorables", [
+        "🌿 TURISMO SLOW: Crecimiento del 34% en búsquedas en los últimos 3 años. El viajero quiere parar.",
+        "💆 BIENESTAR: El mercado global de wellness tourism supera los 800.000 millones de euros anuales.",
+        "♻️ SOSTENIBILIDAD: El 73% de los viajeros declara que la sostenibilidad influye en su elección.",
+        "🎯 EXPERIENCIAS VS OBJETOS: Millennials y Gen X priorizan vivencias sobre consumo material.",
+        "🏡 RURAL PREMIUM: Segmento con mayor crecimiento en ticket medio (+28% desde 2020).",
+        "💻 NÓMADAS DIGITALES: Demanda creciente de estancias largas con naturaleza y conectividad.",
+        "👨‍👩‍👧 FAMILIAS CONSCIENTES: Familias que buscan educar a los hijos con valores naturales y auténticos.",
+        "🌍 TURISMO INTERNACIONAL: Alemanes, franceses y norteamericanos buscan Galicia auténtica.",
+      ]),
+      sp(),
+      h2("Análisis de la Competencia"),
+      p("El mercado gallego cuenta con numerosas casas rurales, pero la mayoría opera en el segmento estándar o básico (60-90€/noche, sin concepto ni experiencias). Los competidores en el segmento premium son escasos, lo que representa una oportunidad estratégica de posicionamiento."),
+      sp(),
+      twoCol(
+        "COMPETENCIA DIRECTA",
+        "NUESTRA VENTAJA",
+        ["Casa rural básica: 60-90€/noche","Hotel rural 3*: 100-150€/noche","Airbnb rural sin concepto","Casas boutique genéricas"],
+        ["Premium + experiencias vivas","Autenticidad real, no decorada","Gestión profesional + story","Identidad única: galicia profunda"]
+      ),
+ 
+      pg(),
+ 
+      // ── 5. PÚBLICO OBJETIVO ──────────────────────────────────────
+      h1("5. PÚBLICO OBJETIVO Y BUYER PERSONAS"),
+      h2("Segmento A — La Pareja Urbana Consciente"),
+      box("Perfil Detallado", [
+        "Edad: 30-48 años | Ingresos: >3.000€/mes por hogar",
+        "Origen: Madrid, Barcelona, Bilbao, Valencia + ciudades europeas (Berlín, París, Ámsterdam)",
+        "Motivación: Desconexión real, romanticismo auténtico, huir del ruido urbano sin renunciar a la calidad",
+        "Busca: Lugares únicos, experiencias compartidas, gastronomía local, fotografía de calidad",
+        "Comportamiento: Reserva con antelación, lee reseñas en profundidad, comparte en redes",
+        "Canal: Instagram, Google 'escapada rural premium', recomendaciones de amigos",
+        "Ticket medio: 600-900€ por estancia de fin de semana con experiencias",
+      ]),
+      sp(),
+      h2("Segmento B — La Familia con Valores"),
+      box("Perfil Detallado", [
+        "Edad padres: 35-50 años | Hijos: 4-14 años",
+        "Motivación: Educar a los hijos en la naturaleza, desconexión familiar real, valores rurales",
+        "Busca: Seguridad, actividades para niños, autenticidad, cocina familiar, espacio para moverse",
+        "Comportamiento: Escapadas de 3-5 noches, prefieren temporada media-baja",
+        "Ticket medio: 1.200-2.500€ por estancia completa con packs familiares",
+      ]),
+      sp(),
+      h2("Segmento C — El Viajero Internacional"),
+      box("Perfil Detallado", [
+        "Origen: Alemania, Francia, Países Bajos, EE.UU., Canadá, Brasil (gallegos en la diáspora)",
+        "Edad: 35-65 años | Alto poder adquisitivo | Viajero experimentado",
+        "Motivación: Descubrir la Galicia auténtica, paisajes atlánticos, gastronomía única, raíces",
+        "Duración de estancia: 5-10 noches | Busca experiencias que no encuentran en guías convencionales",
+        "Canal: Blogs especializados, revistas de viaje europeas, boca a boca de calidad",
+        "Ticket medio: 1.500-3.500€ por estancia larga con packs completos",
+      ]),
+      sp(),
+      h2("Segmento D — El Nómada Digital"),
+      box("Perfil Detallado", [
+        "Edad: 28-42 años | Ingresos variables: 2.500-6.000€/mes | Trabaja desde cualquier lugar",
+        "Motivación: Entorno inspirador, naturaleza, salud mental, precio razonable fuera de temporada",
+        "Busca: WiFi fiable, zona de trabajo tranquila, estancias largas (1-4 semanas), comunidad",
+        "Oportunidad estratégica: llenar temporada baja con tarifas reducidas de larga estancia",
+        "Canal: Comunidades de nómadas en Slack/Discord, Instagram, NomadList",
+      ]),
+ 
+      pg(),
+ 
+      // ── 6. PROPUESTA DE VALOR ────────────────────────────────────
+      h1("6. PROPUESTA DE VALOR Y DIFERENCIACIÓN"),
+      h2("La Promesa Central"),
+      new Table({ width: { size: 9026, type: WidthType.DXA }, columnWidths: [9026], rows: [new TableRow({ children: [new TableCell({ borders: nob, shading: { fill: "FAF7F0", type: ShadingType.CLEAR }, margins: { top: 320, bottom: 320, left: 440, right: 440 }, children: [
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 160 }, children: [new TextRun({ text: "«En A Cortiña da Alma no vendemos noches de hotel.", size: 26, bold: true, color: G, font: "Georgia", italics: true })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 80 }, children: [new TextRun({ text: "Vendemos días que se recuerdan toda la vida.»", size: 26, bold: true, color: G, font: "Georgia", italics: true })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Alojamiento boutique + experiencias inmersivas + naturaleza viva + gastronomía local + atención personalizada", size: 20, color: "777777", font: "Arial" })] }),
+      ] })] })] }),
+      sp(),
+      h2("Los 7 Pilares Diferenciales"),
+      bu("LA TIERRA VIVA — Manzanos, colmenas, caballos y huerto activos. No es decorado; es real y es único.", true),
+      bu("EXPERIENCIAS EXCLUSIVAS — Cada pack es estacional, limitado y no replicable en ningún otro lugar.", true),
+      bu("MICROALOJAMIENTO PREMIUM — Pocos huéspedes, atención máxima. La exclusividad es parte del producto.", true),
+      bu("GASTRONOMÍA DE TERROIR — Desayunos y experiencias gastronómicas con producción propia y de proximidad.", true),
+      bu("BIENESTAR NATURAL — Sin spas artificiales. La naturaleza atlántica gallega es el mayor spa del mundo.", true),
+      bu("SOSTENIBILIDAD REAL — Sin greenwashing. Energía solar, gestión de residuos, producción ecológica.", true),
+      bu("CONEXIÓN HUMANA — El anfitrión es parte de la experiencia. Historias reales, personas reales.", true),
+      sp(),
+      h2("Posicionamiento de Precio"),
+      p("Posicionamiento premium consciente: ticket medio de alojamiento entre 150-220€/noche, con packs experienciales que elevan el gasto medio por estancia a 300-400€/noche equivalente. Por debajo de los grandes eco-lodges internacionales, pero muy por encima del mercado rural gallego convencional. El precio comunica calidad y selecciona el cliente adecuado."),
+ 
+      pg(),
+ 
+      // ── 7. MODELO DE NEGOCIO ─────────────────────────────────────
+      h1("7. MODELO DE NEGOCIO Y FUENTES DE INGRESOS"),
+      h2("Arquitectura de Ingresos"),
+      p("El modelo se basa en 4 líneas de ingresos complementarias que se refuerzan mutuamente, reduciendo la dependencia de una sola fuente y maximizando el gasto por huésped."),
+      sp(),
+      box("LÍNEA 1 — ALOJAMIENTO (50-55% de ingresos)", [
+        "Unidades en Fase 1: 3 cabañas/habitaciones premium independientes",
+        "Tarifa base: 150€/noche (temporada baja) — 220€/noche (temporada alta)",
+        "Ocupación objetivo: 60% año 1 → 75% año 2 (≈219-274 noches/año por unidad)",
+        "Canal directo propio (objetivo 70%): web, email, teléfono",
+        "Plataformas externas (30%): Booking, Airbnb, Rusticae, Rural&Rest",
+        "Política: Sin comisiones por reserva directa. Descuento del 10% por fidelización.",
+      ]),
+      sp(),
+      box("LÍNEA 2 — EXPERIENCIAS Y PACKS (30-35% de ingresos)", [
+        "Experiencia Bienvenida a la Finca: incluida en alojamiento (valor percibido 25€/p)",
+        "Pack Día en la Colmena con extracción: 65€/persona (máx. 6 personas)",
+        "Pack Amanecer a Caballo: 85€/persona (máx. 4 personas)",
+        "Pack Sidrería Viva (elaboración + cata): 60€/persona",
+        "Pack Cocina Gallega con Chef Local: 75€/persona",
+        "Pack Inmersión Total 3 días (todo incluido): 340€/persona",
+        "Experiencias para visitantes externos (sin alojamiento): 45-90€/persona",
+      ]),
+      sp(),
+      box("LÍNEA 3 — PRODUCTOS DE LA FINCA (8-10% de ingresos)", [
+        "Miel de la finca: frasco pequeño 12€ | frasco grande 22€ | pack degustación 35€",
+        "Sidra artesanal: 8€ botella | pack 6 botellas 42€",
+        "Conservas, mermeladas y encurtidos: 5-12€/unidad",
+        "Cestas de productos de temporada: 35-65€",
+        "Merch premium: velas de cera de abeja, jabones, cuadernos, lino bordado",
+        "Tienda física en la finca + tienda online (fase 2)",
+      ]),
+      sp(),
+      box("LÍNEA 4 — RETIROS Y EVENTOS ESPECIALES (5-10% ingresos)", [
+        "Retiro de bienestar semanal (7 noches, todo incluido): 1.400-2.000€/persona",
+        "Estancia nómada digital (mínimo 7 noches): tarifa reducida -20% + espacio de trabajo",
+        "Team building corporativo (bajo consulta): 3.500-8.000€ por grupo",
+        "Cenas privadas con chef local para grupos: 55-80€/persona (mínimo 8 personas)",
+        "Talleres independientes (apicultura, cosmética, alfarería...): 45-70€/persona",
+      ]),
+ 
+      pg(),
+ 
+      // ── 8. EXPERIENCIAS ──────────────────────────────────────────
+      h1("8. CATÁLOGO DE EXPERIENCIAS POR TEMPORADAS"),
+      p("El catálogo de experiencias es el corazón del proyecto. Rota según la temporada y el ritmo vivo de la finca, lo que garantiza autenticidad, exclusividad y motivos para volver."),
+      sp(),
+      h2("🌸 PRIMAVERA — Marzo a Mayo"),
+      bu("DESPERTAR DE LAS COLMENAS: Primera revisión primaveral con traje de apicultor. Ver el milagro del invierno que termina.", true),
+      bu("FLORACIÓN DEL MANZANAR: Paseo guiado al amanecer entre los manzanos en flor con desayuno al aire libre."),
+      bu("SIEMBRA EN EL HUERTO: Plantar con las manos lo que la familia o pareja recogerá en otoño (o recibirá por correo)."),
+      bu("COSMÉTICA NATURAL: Taller de elaboración de bálsamos, velas y jabones con cera de abeja y plantas medicinales locales."),
+      bu("MARIDAJE QUESO Y MIEL: Cata guiada de quesos gallegos artesanos maridados con mieles de temporada."),
+      bu("TALLER DE FOTOGRAFÍA RURAL: Amanecer fotográfico en el manzanar con instructor local."),
+      sp(),
+      h2("☀️ VERANO — Junio a Agosto"),
+      bu("COSECHA DE MIEL: Extracción completa en la colmena con traje, centrífuga y degustación. La experiencia más popular.", true),
+      bu("AMANECER A CABALLO: Ruta ecuestre al alba por paisajes atlánticos. Máximo 4 personas. Inolvidable."),
+      bu("TARDE DE HUERTO Y FOGÓN: Recolectar del huerto lo que el chef cocinará esa noche para el grupo."),
+      bu("NOCHE DE ESTRELLAS: Observación astronómica en campo abierto, lejos de toda contaminación lumínica."),
+      bu("PICNIC EN EL MANZANAR: Cesta preparada con productos de la finca, manta, queso, vino y pan gallego."),
+      bu("TALLER DE PAN GALLEGO: Amasar y hornear el pan de centeno tradicional con masa madre de la casa."),
+      bu("FESTIVAL PRIVADO DE LA SIDRA: Tarde de apertura de las primeras botellas con maridaje de productos locales."),
+      sp(),
+      h2("🍂 OTOÑO — Septiembre a Noviembre"),
+      bu("COSECHA DE MANZANAS: Participación en la recogida y elaboración artesanal de sidra. La experiencia estrella del año.", true),
+      bu("MAGOSTO TRADICIONAL: Tarde de castañas asadas, mucho fuego, cuentos en gallego y música tradicional."),
+      bu("TALLER DE CONSERVAS: Mermeladas, encurtidos y conservas con la huerta de otoño."),
+      bu("SENDERISMO EN LA BRUMA: Rutas por el paisaje atlántico envuelto en niebla. Galicia en estado puro."),
+      bu("APICULTURA DE OTOÑO: Preparación de las colmenas para el invierno. El ciclo cierra y empieza."),
+      bu("MATANZA EDUCATIVA: Conocer (de forma simbólica y respetuosa) el proceso tradicional de conservas de cerdo."),
+      sp(),
+      h2("❄️ INVIERNO — Diciembre a Febrero"),
+      bu("RETIRO DE SILENCIO: Desconexión total, sin programación fija. Solo naturaleza, fuego y silencio.", true),
+      bu("COCIDO GALLEGO COMPLETO: Preparación del cocido tradicional desde cero con productos locales."),
+      bu("NAVIDADES RURALES: Decoración con materiales de la finca, recetas tradicionales, belén de musgo gallego."),
+      bu("TALLER DE VELAS Y CERA: Elaborar velas artesanales con la cera de la propia cosecha de miel."),
+      bu("EQUINOTERAPIA INVERNAL: Sesiones de meditación y conexión profunda con los caballos. Transformador."),
+      bu("LECTURA JUNTO AL FUEGO: La lareira como espacio de comunidad. Cuentos, conversaciones, silencio."),
+ 
+      pg(),
+ 
+      // ── 9. PACKS ─────────────────────────────────────────────────
+      h1("9. PACKS TURÍSTICOS PROPUESTOS"),
+      h2("Pack 1 — ALMA GALLEGA · Fin de Semana para Parejas"),
+      box("2 noches · 2 personas · 480-580€ según temporada", [
+        "✔ 2 noches en cabaña premium con desayuno artesanal ambos días",
+        "✔ Visita guiada privada a la finca (manzanos, colmenas, caballos, huerto)",
+        "✔ Cena de producción propia con el anfitrión (conversación incluida)",
+        "✔ Detalle de bienvenida: tarro de miel + botella de sidra de la casa",
+        "✔ Acceso libre a todos los espacios de la finca en todo momento",
+        "IDEAL: Parejas urbanas, escapada romántica de fin de semana, aniversarios",
+      ]),
+      sp(),
+      h2("Pack 2 — INMERSIÓN TOTAL · Semana Completa"),
+      box("5 noches · 2 personas · 1.200-1.600€ según temporada", [
+        "✔ 5 noches, todos los desayunos, acceso total a la finca",
+        "✔ 3 experiencias de temporada incluidas (una por tierra, una con animales, una gastronómica)",
+        "✔ Ruta personalizada por el entorno con guía local del municipio",
+        "✔ Cena de despedida con productos de la finca y brindis de sidra",
+        "✔ Cesta de productos artesanales para llevar a casa",
+        "IDEAL: Parejas que buscan vivencia profunda, familias sin niños pequeños, viajeros internacionales",
+      ]),
+      sp(),
+      h2("Pack 3 — NÓMADA EN LA TIERRA · Estancia Larga"),
+      box("7-14 noches · 1-2 personas · desde 900€ (7 noches)", [
+        "✔ Alojamiento, todos los desayunos, WiFi de alta velocidad garantizado",
+        "✔ Zona de trabajo privada con vistas a los manzanos",
+        "✔ 1 experiencia de bienvenida incluida en el precio",
+        "✔ Acceso libre a la finca, huerto y animales en todo momento",
+        "✔ Descuento del 20% en todas las experiencias adicionales",
+        "IDEAL: Freelancers, nómadas digitales, personas en transición vital o creativa",
+      ]),
+      sp(),
+      h2("Pack 4 — HERENCIA GALLEGA · Familias"),
+      box("3-4 noches · Familia 4 personas · 750-1.100€ según temporada", [
+        "✔ Alojamiento en unidad amplia, todos los desayunos",
+        "✔ Actividad niños (>4 años): alimentar y cuidar gallinas, ocas y visitar las colmenas",
+        "✔ Taller familiar: hacer pan gallego juntos desde cero",
+        "✔ Paseo a caballo para mayores de 8 años (seguro incluido)",
+        "✔ Kit de explorador rural para cada niño (lupa, cuaderno, lápices)",
+        "IDEAL: Familias con niños 4-14 años que quieren educar con valores naturales",
+      ]),
+      sp(),
+      h2("Pack 5 — RETIRO DE ALMA · Bienestar Profundo"),
+      box("7 noches · 1-2 personas · 1.400-2.000€ todo incluido", [
+        "✔ 7 noches, todas las comidas con producción propia y local",
+        "✔ Programa de bienestar personalizado: meditación, equinoterapia, silencio activo",
+        "✔ Acceso a todas las experiencias de la temporada (ilimitadas)",
+        "✔ Sesión de coaching/reflexión vital con el anfitrión (2 sesiones)",
+        "✔ Sin teléfono ni pantallas durante 24h opcionales",
+        "IDEAL: Personas en proceso de cambio, agotamiento, burnout o búsqueda de significado",
+      ]),
+ 
+      pg(),
+ 
+      // ── 10. MARKETING ────────────────────────────────────────────
+      h1("10. ESTRATEGIA DE MARKETING Y BRANDING"),
+      h2("Identidad Visual de Marca"),
+      p("La marca A Cortiña da Alma debe transmitir calidez, autenticidad y calidad premium sin artificialidad ni ostentación. El diseño se inspira en la cultura material gallega: piedra, madera, verde atlántico, ocres de tierra, blanco de la niebla."),
+      sp(),
+      box("SISTEMA CROMÁTICO", [
+        "Verde Galicia #2D5016 — El bosque atlántico, la naturaleza viva, la profundidad",
+        "Dorado Miel #8B6914 — El color de la miel y el otoño, la calidez y lo precioso",
+        "Crema Natural #F5F0E8 — La piedra de granito, lo orgánico, la neutralidad cálida",
+        "Tierra Atlántica #8B6355 — La tierra gallega mojada, lo enraizado, lo permanente",
+        "Blanco Niebla #F8F6F2 — La bruma atlántica, la limpieza sin frialdad, el espacio",
+      ]),
+      sp(),
+      box("SISTEMA TIPOGRÁFICO", [
+        "Display/Titular: Playfair Display Italic — Elegancia literaria con carácter europeo clásico",
+        "Subtítulos: Cormorant Garamond — Refinado, legible, con alma humanista",
+        "Cuerpo web/impreso: Lora Regular — Confort de lectura, carácter cálido",
+        "UI y funcional: DM Sans Light — Claridad moderna que no compite con el display",
+      ]),
+      sp(),
+      box("ESTILO FOTOGRÁFICO", [
+        "Luz natural dorada (golden hour) y neblina atlántica como elementos recurrentes",
+        "Fotografías de detalle hipnótico: miel cayendo, crin de caballo, vapor del pan, mano en la tierra",
+        "Personas reales, nunca modelos de stock. Los huéspedes son los protagonistas.",
+        "Gastronomía fotografiada sobre madera, piedra y lino natural con luz lateral",
+        "Planos aéreos del manzanar en flor, en verde y en cosecha (las 4 estaciones)",
+        "Filtros cálidos, saturación media-baja, contraste suave. Estética film análogo.",
+        "Nunca perfecto, siempre auténtico. La imperfección es parte de la belleza.",
+      ]),
+      sp(),
+      h2("Estrategia de Contenidos Digitales"),
+      bu("INSTAGRAM (4-5 posts/semana): Carruseles de experiencias, reels de la finca en tiempo real, stories diarias de vida en A Cortiña"),
+      bu("TIKTOK (3 vídeos/semana): «Un día cuidando las abejas», «Amanecer con los caballos», «Así se hace la sidra»"),
+      bu("PINTEREST: Tableros de Galicia Rural, Turismo Slow, Decoración Rústica Premium, Gastronomía Gallega"),
+      bu("YOUTUBE (2 vídeos/mes): Mini documentales de 6-10 min sobre la vida en la finca y las estaciones"),
+      bu("EMAIL MARKETING: Newsletter mensual «Carta desde la finca» con receta de temporada e historias reales"),
+      sp(),
+      h2("10 Ideas Virales para Redes Sociales"),
+      bu("«La hora de la miel» — ASMR de extracción. Vídeo hipnótico que arrasa en TikTok e Instagram"),
+      bu("«Galicia en 4 estaciones» — El mismo rincón del manzanar en las 4 estaciones. Uno de los más compartibles"),
+      bu("«¿Sabes de dónde viene tu miel?» — Contenido educativo POV con traje de apicultor"),
+      bu("«El desayuno más gallego del mundo» — Flat lay artístico de productos de la finca con luz del amanecer"),
+      bu("«Mi primer día con las abejas» — Historia de un huésped con traje de apicultor y cara de miedo y maravilla"),
+      bu("«Receta: Pan gallego desde cero» — Tutorial en 90 segundos que termina con la familia comiendo en la finca"),
+      bu("«Amanece en A Cortiña» — Timelapse de 60 segundos del amanecer sobre los manzanos. Bucle perfecto"),
+      bu("«Lo que nadie te cuenta de criar caballos» — Contenido educativo + emotivo con los caballos en primer plano"),
+      bu("«Antes y después» — Transformación del espacio de la finca. El recorrido de la rehabilitación"),
+      bu("«Cartas desde la finca» — Los anfitriones escriben a cámara una carta a los huéspedes que van a llegar"),
+ 
+      pg(),
+ 
+      // ── 11. ESTRATEGIA DIGITAL ───────────────────────────────────
+      h1("11. ESTRATEGIA DIGITAL Y ARQUITECTURA WEB"),
+      h2("Principios de la Web"),
+      p("La web es el escaparate principal y el motor de reservas directas. Debe transmitir la misma emoción que el lugar: lenta, hermosa, orgánica. Nunca saturada. Cada scroll debe sentirse como un paso más dentro de la finca."),
+      sp(),
+      h2("Arquitectura de la Web — Estructura de Páginas"),
+      box("MAPA DE LA WEB", [
+        "/ HOME — Impacto emocional, vídeo hero, promesa clara, reserva directa visible",
+        "/experiencias — Catálogo por temporadas con descripciones emotivas, precios y disponibilidad",
+        "/alojamiento — Fotos premium, distribución de las unidades, detalles, calendario",
+        "/packs — Configurador interactivo de packs con precios dinámicos",
+        "/nosotros — Storytelling de los anfitriones, historia del lugar, valores",
+        "/sostenibilidad — La filosofía ecológica explicada con datos y emoción",
+        "/blog — Contenido SEO, historias de la finca, recetas, guías de Galicia",
+        "/reservas — Motor de reservas directas integrado (Lodgify o Smoobu)",
+        "/galeria — Galería inmersiva de fotos y vídeos estacionales",
+        "/inversores — Dossier descargable, datos del proyecto, contacto confidencial",
+        "/contacto — Formulario simple, mapa de ubicación, Instagram embebido",
+      ]),
+      sp(),
+      h2("SEO — Estrategia de Palabras Clave"),
+      box("MAPA DE KEYWORDS", [
+        "PRIMARIAS: 'turismo rural Galicia', 'casa rural San Sadurniño', 'agroturismo Galicia premium'",
+        "SECUNDARIAS: 'escapada rural A Coruña', 'casa rural con experiencias Galicia', 'turismo slow Galicia'",
+        "LONG TAIL: 'casa rural con caballos A Coruña', 'apicultura turismo Galicia', 'retiro naturaleza Galicia'",
+        "INTERNACIONALES: 'rural tourism Galicia Spain', 'eco lodge Galicia', 'authentic Galicia experience'",
+        "ESTACIONALES: 'escapada rural Navidad Galicia', 'turismo rural verano Galicia', 'fin de semana rural Galicia'",
+      ]),
+      sp(),
+      h2("Blog — 10 Artículos SEO Prioritarios"),
+      bu("«Las 12 experiencias rurales en Galicia que nadie te ha contado aún»"),
+      bu("«Por qué Galicia es el destino de turismo slow más auténtico de Europa»"),
+      bu("«Cómo es vivir una semana de agroturismo en el norte de Galicia»"),
+      bu("«Guía completa para una escapada rural en familia por A Coruña»"),
+      bu("«La miel gallega: apicultura tradicional en el atlántico verde»"),
+      bu("«Turismo slow: qué es, por qué importa y dónde practicarlo en España»"),
+      bu("«San Sadurniño: el rincón de Galicia que los turistas todavía no han descubierto»"),
+      bu("«El magosto gallego: todo lo que necesitas saber sobre esta tradición otoñal»"),
+      bu("«5 razones para hacer una escapada rural en invierno en Galicia»"),
+      bu("«Receta: pan de centeno gallego con masa madre tradicional»"),
+ 
+      pg(),
+ 
+      // ── 12. COLABORACIONES ───────────────────────────────────────
+      h1("12. RED DE COLABORACIONES LOCALES"),
+      p("El proyecto no compite con el tejido local, lo integra y lo potencia. Las colaboraciones son estratégicas: generan valor para ambas partes, refuerzan la autenticidad y crean una red de apoyo mutuo."),
+      sp(),
+      new Table({
+        width: { size: 9026, type: WidthType.DXA }, columnWidths: [2707, 2707, 2612],
+        rows: [
+          new TableRow({ children: ["COLABORADOR", "APORTACIÓN AL PROYECTO", "BENEFICIO PARA ELLOS"].map((t, i) =>
+            new TableCell({ borders: brd, width: { size: [2707,2707,2612][i], type: WidthType.DXA }, shading: { fill: G, type: ShadingType.CLEAR }, margins: { top: 100, bottom: 100, left: 140, right: 140 }, children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, color: "FFFFFF", size: 20, font: "Georgia" })] })] })
+          )}),
+          ...[
+            ["Quesería artesana local","Quesos para desayunos y catas","Canal de venta garantizado"],
+            ["Bodegas Rías Baixas/Ribeiro","Maridajes y catas de vino","Visibilidad en turismo premium"],
+            ["Panadería artesana","Pan gallego diario en la finca","Pedido fijo y estable"],
+            ["Guías senderismo local","Rutas personalizadas del entorno","Clientes cualificados y pagantes"],
+            ["Artesanos (cestería, alfarería)","Talleres y tienda de productos","Exposición y ventas nuevas"],
+            ["Chef local freelance","Cenas y talleres gastronómicos","Ingresos regulares extra"],
+            ["Herbolario / Etnobotánica","Talleres de plantas medicinales","Reconocimiento y visibilidad"],
+            ["Fotógrafo/a local","Documentación y contenido","Portfolio y difusión"],
+          ].map((row, ri) => new TableRow({ children: row.map((t, ci) =>
+            new TableCell({ borders: brd, width: { size: [2707,2707,2612][ci], type: WidthType.DXA }, shading: { fill: ri%2===0 ? "FAFAF7":"F5F5F0", type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 140, right: 140 }, children: [new Paragraph({ children: [new TextRun({ text: t, size: 19, font: "Arial", color: "333333" })] })] })
+          ) }))
+        ]
+      }),
+ 
+      pg(),
+ 
+      // ── 13. SOSTENIBILIDAD ───────────────────────────────────────
+      h1("13. SOSTENIBILIDAD Y ENFOQUE ECOLÓGICO"),
+      h2("Compromisos Ambientales"),
+      bu("Instalación de paneles solares fotovoltaicos para autoabastecimiento energético"),
+      bu("Recogida y reutilización de agua de lluvia para riego del huerto y jardín"),
+      bu("Compostaje de todos los residuos orgánicos de la finca y la cocina"),
+      bu("Eliminación total de plásticos de un solo uso en alojamiento y experiencias"),
+      bu("Uso exclusivo de productos de limpieza ecológicos y biodegradables"),
+      bu("Preservación y ampliación activa de las colmenas como especie polinizadora esencial"),
+      bu("Cero uso de pesticidas ni herbicidas químicos en toda la finca"),
+      bu("Programa de reforestación con especies autóctonas gallegas (roble, abedul, carballo)"),
+      sp(),
+      h2("Compromisos Sociales"),
+      bu("Empleo local prioritario: todos los puestos cubiertos con residentes del municipio"),
+      bu("Compra de suministros a proveedores locales en un radio máximo de 50 km"),
+      bu("Apoyo a productores artesanales y pequeños agricultores de Ferrolterra"),
+      bu("Colaboración activa con el Ayuntamiento en iniciativas de desarrollo rural"),
+      bu("Programa de visitas educativas para colegios locales"),
+      sp(),
+      h2("Certificaciones y Sellos Objetivo"),
+      bu("Biosphere Responsible Tourism — Reconocimiento internacional de sostenibilidad"),
+      bu("Q de Calidad Turística — Sello ICTE para alojamientos rurales"),
+      bu("Galicia Calidade — Marca de calidad de la Xunta de Galicia"),
+      bu("Agricultura Ecológica Certificada — Para la producción propia de la finca"),
+      bu("Turismo Responsable Galicia — Programa de Axencia Turismo de Galicia"),
+ 
+      pg(),
+ 
+      // ── 14. DAFO ─────────────────────────────────────────────────
+      h1("14. ANÁLISIS DAFO"),
+      sp(),
+      dafo(),
+ 
+      pg(),
+ 
+      // ── 15. VIABILIDAD ───────────────────────────────────────────
+      h1("15. VIABILIDAD ECONÓMICA Y PROYECCIONES"),
+      h2("Inversión Inicial Estimada"),
+      new Table({
+        width: { size: 9026, type: WidthType.DXA }, columnWidths: [5426, 1800, 1800],
+        rows: [
+          new TableRow({ children: ["CONCEPTO DE INVERSIÓN","ESCENARIO MÍNIMO","ESCENARIO ÓPTIMO"].map((t,i) =>
+            new TableCell({ borders: brd, width: { size: [5426,1800,1800][i], type: WidthType.DXA }, shading: { fill: G, type: ShadingType.CLEAR }, margins: { top: 100, bottom: 100, left: 140, right: 140 }, children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, color: "FFFFFF", size: 20, font: "Georgia" })] })] })
+          )}),
+          ...[
+            ["Rehabilitación y acondicionamiento del alojamiento","60.000€","120.000€"],
+            ["Instalación solar y eficiencia energética","15.000€","30.000€"],
+            ["Equipamiento y mobiliario premium","20.000€","40.000€"],
+            ["Infraestructura de experiencias (zonas animales, colmenas...)","8.000€","18.000€"],
+            ["Desarrollo web, branding y fotografía profesional","6.000€","14.000€"],
+            ["Permisos, licencias y gastos notariales/legales","3.000€","6.000€"],
+            ["Capital circulante inicial (6 meses de operación)","15.000€","25.000€"],
+            ["INVERSIÓN TOTAL ESTIMADA","127.000€","253.000€"],
+          ].map((row, ri) => new TableRow({ children: row.map((t,ci) =>
+            new TableCell({ borders: brd, width: { size: [5426,1800,1800][ci], type: WidthType.DXA }, shading: { fill: ri===7 ? LG : (ri%2===0?"FAFAF7":"F5F5F0"), type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 140, right: 140 }, children: [new Paragraph({ children: [new TextRun({ text: t, size: 20, font: "Arial", bold: ri===7, color: ri===7 ? G : "333333" })] })] })
+          ) }))
+        ]
+      }),
+      sp(),
+      h2("Proyección de Ingresos a 3 Años"),
+      incomeTable(),
+      sp(),
+      p("Hipótesis: 3 unidades de alojamiento, precio medio 170€/noche. Incremento de ocupación del 60% (año 1) al 75% (año 3). El ROI de la inversión se estima entre 4 y 6 años según el escenario de inversión elegido.", { italics: true }),
+ 
+      pg(),
+ 
+      // ── 16. SUBVENCIONES ─────────────────────────────────────────
+      h1("16. SUBVENCIONES Y AYUDAS DISPONIBLES"),
+      h2("Financiación Europea"),
+      box("FEADER — Fondo Europeo Agrícola de Desarrollo Rural", [
+        "Objetivo: Apoyo a inversiones en turismo rural y diversificación de explotaciones agrícolas",
+        "Cobertura: Hasta el 45% de la inversión elegible en proyectos de turismo y diversificación",
+        "Tramitación: A través de la Xunta de Galicia (Consellería do Medio Rural)",
+        "Plazo: Convocatorias anuales. Imprescindible consultar abierta actual.",
+      ]),
+      sp(),
+      box("LEADER (Grupos de Acción Local — GAL)", [
+        "Objetivo: Desarrollo socioeconómico de zonas rurales desfavorecidas",
+        "Cobertura: Hasta el 50% de inversión elegible para proyectos turísticos en zonas rurales",
+        "GAL de referencia: GAL Ferrolterra-Eume-Ortegal (zona de San Sadurniño)",
+        "Ventaja: Tramitación más cercana y flexible que los programas directos de la Xunta",
+      ]),
+      sp(),
+      h2("Programas de la Xunta de Galicia"),
+      bu("Plan de Dinamización do Turismo Rural — Subvenciones para creación y mejora de alojamientos rurales"),
+      bu("Programa de Apoio ao Sector Apícola — Modernización y ampliación de explotaciones apícolas"),
+      bu("Iniciativa Turismo Rural Galego — Ayudas para inversión en calidad y sostenibilidad"),
+      bu("AGADER (Axencia Galega de Desenvolvemento Rural) — Programas de desarrollo con cofinanciación europea"),
+      bu("Instituto Galego de Promoción Económica (IGAPE) — Líneas de financiación para emprendimiento rural"),
+      sp(),
+      h2("Programas Estatales y Otros"),
+      bu("ICO Empresas y Emprendedores — Líneas de crédito blando para proyectos turísticos"),
+      bu("ENISA — Préstamos participativos para proyectos innovadores y sostenibles con largo plazo"),
+      bu("REINDUS (MITECO) — Proyectos de eficiencia energética y energías renovables en empresas"),
+      bu("Red de Business Angels de Galicia — Captación de inversores privados comprometidos con el territorio"),
+      sp(),
+      p("RECOMENDACIÓN ESTRATÉGICA: Contratar a una consultora especializada en subvenciones europeas para turismo rural en Galicia antes de iniciar la inversión. El ahorro potencial en financiación puede superar los 40.000-70.000€ en la primera fase del proyecto.", { bold: true }),
+ 
+      pg(),
+ 
+      // ── 17. ROADMAP ──────────────────────────────────────────────
+      h1("17. ROADMAP DE LANZAMIENTO"),
+      sp(),
+      roadmapTable(),
+      sp(),
+      h2("Detalle de Fases"),
+      h3("FASE 0 — Preparación (Meses 1-3)"),
+      bu("Constitución legal de la empresa y registro de la marca 'A Cortiña da Alma'"),
+      bu("Solicitud y tramitación de licencias turísticas autonómicas"),
+      bu("Desarrollo del branding completo: logo, identidad visual, sistema tipográfico"),
+      bu("Sesión fotográfica profesional de la finca y sus elementos vivos"),
+      bu("Inicio de obras de rehabilitación del alojamiento"),
+      bu("Solicitud formal de subvenciones LEADER y FEADER"),
+      sp(),
+      h3("FASE 1 — Prelanzamiento (Meses 4-6)"),
+      bu("Lanzamiento de la web con motor de reservas operativo"),
+      bu("Apertura de perfiles en Instagram, TikTok y Pinterest con contenido inicial"),
+      bu("Invitaciones a bloggers y periodistas de turismo para estancias de prueba"),
+      bu("Alta en Booking, Airbnb, Rusticae y Rural&Rest"),
+      bu("Firma de acuerdos formales con primeros colaboradores locales"),
+      sp(),
+      h3("FASE 2 — Apertura y Consolidación (Meses 7-18)"),
+      bu("Apertura oficial con las primeras reservas de la temporada"),
+      bu("Activación de campañas Google Ads y Meta Ads (presupuesto: 800-1.500€/mes)"),
+      bu("Ajuste del catálogo de experiencias según feedback de primeros huéspedes"),
+      bu("Inicio de proceso de certificaciones de sostenibilidad"),
+      bu("Primeras menciones en prensa y blogs especializados"),
+      sp(),
+      h3("FASE 3 — Crecimiento (Año 2-3)"),
+      bu("Ampliación de unidades de alojamiento si la demanda lo justifica"),
+      bu("Lanzamiento del programa de retiros y corporativo B2B"),
+      bu("Apertura de la tienda online con productos de la finca (miel, sidra, merch)"),
+      bu("Captación del mercado internacional: Alemania, Francia, Países Bajos"),
+      bu("Creación del Club A Cortiña: programa de fidelización y comunidad"),
+ 
+      pg(),
+ 
+      // ── 18. CRECIMIENTO ──────────────────────────────────────────
+      h1("18. ESTRATEGIA DE CRECIMIENTO A LARGO PLAZO"),
+      h2("Vectores de Expansión"),
+      bu("AMPLIACIÓN DEL ALOJAMIENTO — De 3 unidades iniciales a 5-6 manteniendo la exclusividad y el ratio de atención", true),
+      bu("ESCUELA DE LA FINCA — Cursos independientes del alojamiento: apicultura, quesería, cosmética natural, alfarería", true),
+      bu("E-COMMERCE DE LA FINCA — Tienda online de productos artesanales propios con envío nacional e internacional", true),
+      bu("TURISMO CORPORATIVO B2B — Team building premium y retiros de empresa en temporada baja", true),
+      bu("RED DE FINCAS AMIGAS — Exportar el concepto y el estándar de calidad a otras fincas gallegas bajo la marca", true),
+      bu("CONTENIDO Y COMUNIDAD — Plataforma digital de referencia sobre Galicia auténtica y turismo slow", true),
+      sp(),
+      h2("Visión a 5 Años — A Cortiña da Alma en 2030"),
+      box("Métricas Objetivo 2030", [
+        "🏡 5-6 unidades de alojamiento con ocupación media anual >75%",
+        "💶 Ingresos totales superiores a 350.000€/año",
+        "🌍 Marca reconocida internacionalmente en mercado centroeuropeo y norteamericano",
+        "📱 Comunidad digital activa de más de 50.000 seguidores comprometidos",
+        "🏆 Premio o reconocimiento en turismo sostenible a nivel europeo",
+        "🤝 Red de 20+ colaboradores locales integrados en el ecosistema del proyecto",
+        "🎓 Programa educativo propio sobre cultura, naturaleza y artesanía gallega",
+      ]),
+ 
+      pg(),
+ 
+      // ── CIERRE ───────────────────────────────────────────────────
+      new Paragraph({ spacing: { before: 1400, after: 400 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "A Cortiña da Alma", size: 56, bold: true, color: G, font: "Georgia" })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 300 }, children: [new TextRun({ text: "San Sadurniño · A Coruña · Galicia · España", size: 24, color: GO, font: "Georgia", italics: true })] }),
+      new Table({ width: { size: 6000, type: WidthType.DXA }, columnWidths: [6000], rows: [new TableRow({ children: [new TableCell({ borders: nob, shading: { fill: "F5F2EA", type: ShadingType.CLEAR }, margins: { top: 300, bottom: 300, left: 400, right: 400 }, children: [
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "«Donde el tiempo tiene otro ritmo»", size: 28, bold: true, color: G, font: "Georgia", italics: true })] }),
+      ] })] })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 500, after: 100 }, children: [new TextRun({ text: "Este documento es confidencial y está preparado con fines de planificación estratégica y captación de inversión.", size: 18, color: "999999", font: "Arial" })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "© 2025 A Cortiña da Alma. Todos los derechos reservados.", size: 18, color: "999999", font: "Arial" })] }),
+    ]
+  }]
+});
+ 
+Packer.toBuffer(doc).then(buffer => {
+  fs.writeFileSync('/mnt/user-data/outputs/A_Cortina_da_Alma_Memoria_Proyecto.docx', buffer);
+  console.log('✅ Memoria creada correctamente');
+}).catch(err => {
+  console.error('Error:', err);
+  process.exit(1);
+});
